@@ -1,0 +1,144 @@
+{
+  "schedules": [
+    {
+      "id": "5a0213ae-7ada-46c6-8385-4f70d4d1813d",
+      "type": "BRANCH",
+      "academic_year": "2022-2026",
+      "branch": "CSE",
+      "name": "java",
+      "start_date": "2026-02-21T00:00:00.000Z",
+      "end_date": "2026-02-22T18:29:59.999Z",
+      "room_no": "202",
+      "status": "Active",
+      "attendance_completed": false,
+      "attendance_completed_at": null,
+      "created_at": "2026-02-21T17:41:35.160Z",
+      "updated_at": "2026-02-21T17:41:35.160Z",
+      "is_deleted": false,
+      "faculty": [
+        {
+          "id": "51b02348-6c5a-40d7-b5a9-b82e363b5651",
+          "user_id": "39fef15b-16b7-4ff6-8fec-c692d44a4beb",
+          "name": "Abdul Azizes Shaik",
+          "email": "shaikazizes04@gmail.com",
+          "email_hash": null,
+          "phone": "+919392031232",
+          "phone_hash": null,
+          "assignedBranches": [
+            "CSE"
+          ],
+          "assignedBatches": [],
+          "created_at": "2026-02-19T06:14:47.874Z",
+          "updated_at": "2026-02-19T06:14:47.874Z",
+          "is_deleted": false,
+          "user": {
+            "id": "39fef15b-16b7-4ff6-8fec-c692d44a4beb",
+            "name": "Abdul Azizes Shaik",
+            "username": "shaikazizes04@gmail.com",
+            "username_hash": "55d132db964ccb40d0a082650263ac1fe3a4a533320598c5e0116793e7b80ca5",
+            "email": "shaikazizes04@gmail.com",
+            "email_hash": "55d132db964ccb40d0a082650263ac1fe3a4a533320598c5e0116793e7b80ca5",
+            "phone": "+919392031232",
+            "phone_hash": null,
+            "password": "$2a$10$MGeaY6wh8f4l4jJAAFC0xuhr3YIXYh9kvShN5tbmOpR.8FKte61Di",
+            "role": "STAFF",
+            "college_id": "a6245367-b4e8-452b-a2d8-e1ef3078827e",
+            "mustChangePassword": false,
+            "created_at": "2026-02-19T06:14:47.823Z",
+            "updated_at": "2026-02-19T16:51:45.923Z",
+            "is_deleted": false
+          }
+        }
+      ],
+      "batches": []
+    }
+  ],
+  "faculty": [
+    {
+      "id": "357ba47f-812e-4824-b473-d0c5842827a3",
+      "user_id": "06bdab5b-62ba-43bc-927f-4bd151d6076c",
+      "name": "Professor Staff",
+      "email": "42515afd8e6699f6a2b47bb7:63d6de04ca4d923dd528cb8c4703e324:7dda5a99ab83c8a8954d0d9b9d4d87d75840",
+      "email_hash": "2ec1ea76b7774488cfeed4012fb086e9e393a29ebb01fd1e6778bdfb7287571e",
+      "phone": "70910ef99ed73d372522f2dd:23f1fbb03a1ba25c37b4638f9ef6c884:b1df951ab390d9993561",
+      "phone_hash": "94937f86da4798b6d9b3be1de5801b286997e9371080f474b2be7f1abae37c5b",
+      "assignedBranches": [
+        "CSE",
+        "ECE"
+      ],
+      "assignedBatches": [
+        "Batch A",
+        "Batch B"
+      ],
+      "created_at": "2026-02-18T23:27:47.301Z",
+      "updated_at": "2026-02-18T23:27:47.301Z",
+      "is_deleted": false,
+      "user": {
+        "id": "06bdab5b-62ba-43bc-927f-4bd151d6076c",
+        "name": "Professor Staff",
+        "username": null,
+        "username_hash": null,
+        "email": "42515afd8e6699f6a2b47bb7:63d6de04ca4d923dd528cb8c4703e324:7dda5a99ab83c8a8954d0d9b9d4d87d75840",
+        "email_hash": "2ec1ea76b7774488cfeed4012fb086e9e393a29ebb01fd1e6778bdfb7287571e",
+        "phone": "70910ef99ed73d372522f2dd:23f1fbb03a1ba25c37b4638f9ef6c884:b1df951ab390d9993561",
+        "phone_hash": "94937f86da4798b6d9b3be1de5801b286997e9371080f474b2be7f1abae37c5b",
+        "password": "$2a$10$I0QpLuOjMntinvE/00f/I.E7iFtq.i3A1shQngCkjuBGujx6RZqAe",
+        "role": "STAFF",
+        "college_id": "a6245367-b4e8-452b-a2d8-e1ef3078827e",
+        "mustChangePassword": false,
+        "created_at": "2026-02-18T23:27:47.287Z",
+        "updated_at": "2026-02-18T23:27:47.287Z",
+        "is_deleted": false
+      }
+    },
+    {
+      "id": "51b02348-6c5a-40d7-b5a9-b82e363b5651",
+      "user_id": "39fef15b-16b7-4ff6-8fec-c692d44a4beb",
+      "name": "Abdul Azizes Shaik",
+      "email": "shaikazizes04@gmail.com",
+      "email_hash": null,
+      "phone": "+919392031232",
+      "phone_hash": null,
+      "assignedBranches": [
+        "CSE"
+      ],
+      "assignedBatches": [],
+      "created_at": "2026-02-19T06:14:47.874Z",
+      "updated_at": "2026-02-19T06:14:47.874Z",
+      "is_deleted": false,
+      "user": {
+        "id": "39fef15b-16b7-4ff6-8fec-c692d44a4beb",
+        "name": "Abdul Azizes Shaik",
+        "username": "shaikazizes04@gmail.com",
+        "username_hash": "55d132db964ccb40d0a082650263ac1fe3a4a533320598c5e0116793e7b80ca5",
+        "email": "shaikazizes04@gmail.com",
+        "email_hash": "55d132db964ccb40d0a082650263ac1fe3a4a533320598c5e0116793e7b80ca5",
+        "phone": "+919392031232",
+        "phone_hash": null,
+        "password": "$2a$10$MGeaY6wh8f4l4jJAAFC0xuhr3YIXYh9kvShN5tbmOpR.8FKte61Di",
+        "role": "STAFF",
+        "college_id": "a6245367-b4e8-452b-a2d8-e1ef3078827e",
+        "mustChangePassword": false,
+        "created_at": "2026-02-19T06:14:47.823Z",
+        "updated_at": "2026-02-19T16:51:45.923Z",
+        "is_deleted": false
+      }
+    }
+  ],
+  "students": [
+    {
+      "id": "43da166e-7fe1-47f6-9d46-d6b9b087b63c",
+      "branch": "CSE",
+      "batch": "2022-2026",
+      "is_crt": true,
+      "roll_no": "71002c23069390f8682adf4a:41312f224fd76b438e8ab2cc72cc4fec:389965896b45ca6eddeb"
+    },
+    {
+      "id": "c0c49458-70aa-44c9-9394-b30ee6aa7317",
+      "branch": "CSE",
+      "batch": "2024-2025",
+      "is_crt": false,
+      "roll_no": "TEST-bd09f90b"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+﻿{
+    "year":  4,
+    "branch":  "CSE",
+    "roll_no":  "SEC0218223759",
+    "skills":  [
+                   "Java",
+                   "Security"
+               ],
+    "batch":  "2022-2026",
+    "name":  "Security Test Student",
+    "cgpa":  8.5,
+    "status":  "Unplaced",
+    "email":  "test_SEC0218223759@example.com"
+}

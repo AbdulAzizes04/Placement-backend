@@ -1,0 +1,2 @@
+﻿src/controllers/attendance.controller.ts(48,58): error TS2353: Object literal may only specify known properties, and 'roll_no' does not exist in type 'UserSelect<DefaultArgs>'.
+src/controllers/attendance.controller.ts(132,25): error TS2353: Object literal may only specify known properties, and 'present' does not exist in type 'Without<AttendanceCreateInput, AttendanceUncheckedCreateInput> & AttendanceUncheckedCreateInput'.

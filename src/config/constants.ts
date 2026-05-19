@@ -1,0 +1,13 @@
+export const ROLES = {
+  STUDENT: 'STUDENT',
+  STAFF: 'STAFF',
+  TPO: 'TPO',
+  ADMIN: 'ADMIN',
+} as const;
+
+export const APPLICATION_STATUSES = {
+  APPLIED: 'APPLIED',
+  SHORTLISTED: 'SHORTLISTED',
+  REJECTED: 'REJECTED',
+  PLACED: 'PLACED',
+} as const;

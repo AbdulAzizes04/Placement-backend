@@ -10,8 +10,14 @@ async function resetPassword() {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     try {
-        const user = await prisma.user.update({
+        const existingUser = await prisma.user.findFirst({
             where: { email },
+        });
+        if (!existingUser) {
+            throw new Error(`User with email ${email} not found.`);
+        }
+        const user = await prisma.user.update({
+            where: { id: existingUser.id },
             data: { password: hashedPassword },
         });
         console.log(`Password for ${user.email} has been reset to '${newPassword}'.`);

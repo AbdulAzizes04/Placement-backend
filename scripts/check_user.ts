@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 async function main() {
     const email = 'dinesh@example.com';
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
         where: { email },
     });
 

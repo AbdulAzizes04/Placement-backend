@@ -1,10 +1,10 @@
 export declare class AnnouncementService {
     create(data: any, userId: string, collegeId: string): Promise<{
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         company_name: string;
         package: string | null;
         job_role: string;
@@ -24,10 +24,10 @@ export declare class AnnouncementService {
             };
         } & {
             id: string;
+            college_id: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            college_id: string;
             company_name: string;
             package: string | null;
             job_role: string;
@@ -49,10 +49,10 @@ export declare class AnnouncementService {
     }>;
     getById(id: string): Promise<{
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         company_name: string;
         package: string | null;
         job_role: string;
@@ -67,10 +67,10 @@ export declare class AnnouncementService {
     } | null>;
     update(id: string, data: any): Promise<{
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         company_name: string;
         package: string | null;
         job_role: string;
@@ -85,10 +85,10 @@ export declare class AnnouncementService {
     }>;
     delete(id: string): Promise<{
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         company_name: string;
         package: string | null;
         job_role: string;

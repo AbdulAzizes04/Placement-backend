@@ -82,15 +82,31 @@ class AnnouncementService {
         });
     }
     async delete(id) {
-        return await prisma_1.default.announcement.update({
-            where: { id },
-            data: { is_deleted: true },
+        return await prisma_1.default.$transaction(async (tx) => {
+            // 1. Soft delete all applications related to this announcement
+            await tx.application.updateMany({
+                where: { announcement_id: id },
+                data: { is_deleted: true },
+            });
+            // 2. Soft delete the announcement itself
+            return await tx.announcement.update({
+                where: { id },
+                data: { is_deleted: true },
+            });
         });
     }
     async bulkDelete(ids) {
-        return await prisma_1.default.announcement.updateMany({
-            where: { id: { in: ids } },
-            data: { is_deleted: true },
+        return await prisma_1.default.$transaction(async (tx) => {
+            // 1. Soft delete all applications related to these announcements
+            await tx.application.updateMany({
+                where: { announcement_id: { in: ids } },
+                data: { is_deleted: true },
+            });
+            // 2. Soft delete the announcements
+            return await tx.announcement.updateMany({
+                where: { id: { in: ids } },
+                data: { is_deleted: true },
+            });
         });
     }
 }

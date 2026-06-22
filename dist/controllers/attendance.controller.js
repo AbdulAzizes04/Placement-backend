@@ -27,7 +27,7 @@ const getAttendanceSheet = async (req, res) => {
                     crt_batch_id: { in: batchIds },
                     is_deleted: false
                 },
-                include: { user: { select: { name: true, roll_no: true } } }, // Access user for name? No, name is on User, roll_no on StudentProfile
+                include: { user: { select: { name: true } } }, // Access user for name
                 orderBy: { roll_no: 'asc' }
             });
         }
@@ -104,8 +104,7 @@ const markAttendance = async (req, res) => {
                         date: new Date(date),
                         section: section,
                         status: record.status,
-                        topic: topic,
-                        present: record.status === 'PRESENT' // Legacy field support if needed, or remove from schema
+                        topic: topic
                     }
                 });
             }

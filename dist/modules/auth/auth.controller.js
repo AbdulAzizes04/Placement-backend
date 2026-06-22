@@ -44,10 +44,30 @@ class AuthController {
     async changePassword(req, res) {
         try {
             const { oldPassword, newPassword } = auth_validation_1.changePasswordSchema.parse(req.body);
-            await authService.changePassword(req.user.id, oldPassword, newPassword);
-            res.json({ message: 'Password changed' });
+            const result = await authService.changePassword(req.user.id, oldPassword, newPassword);
+            // Set secure cookie
+            res.cookie("token", result.token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: "lax",
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            });
+            res.json({ message: 'Password changed successfully', token: result.token, user: result.user });
         }
         catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    }
+    async resetPassword(req, res) {
+        try {
+            const { identifier, newPassword } = auth_validation_1.resetPasswordSchema.parse(req.body);
+            const result = await authService.resetPasswordDirect(identifier, newPassword);
+            res.json(result);
+        }
+        catch (error) {
+            if (error instanceof zod_1.z.ZodError) {
+                return res.status(400).json({ error: error.errors[0].message });
+            }
             res.status(400).json({ error: error.message });
         }
     }

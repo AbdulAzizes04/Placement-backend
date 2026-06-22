@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CRTService = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
+const encryption_1 = require("../../utils/encryption");
 class CRTService {
     async createBatch(data) {
         return await prisma_1.default.cRTBatch.create({
@@ -12,11 +13,39 @@ class CRTService {
         });
     }
     async getBatches(studentId) {
-        return await prisma_1.default.cRTBatch.findMany({
+        const batches = await prisma_1.default.cRTBatch.findMany({
             where: {
                 is_deleted: false,
                 students: studentId ? { some: { id: studentId } } : undefined
             },
+            include: {
+                students: {
+                    select: {
+                        branch: true,
+                        status: true
+                    }
+                }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+        return batches.map(batch => {
+            const branchCounts = {};
+            let placedCount = 0;
+            batch.students.forEach(s => {
+                const branch = s.branch || 'Unknown';
+                branchCounts[branch] = (branchCounts[branch] || 0) + 1;
+                if (s.status === 'Placed') {
+                    placedCount++;
+                }
+            });
+            return {
+                ...batch,
+                total_students: batch.students.length,
+                placed_students: placedCount,
+                unplaced_students: batch.students.length - placedCount,
+                branch_breakdown: branchCounts,
+                students: undefined // Removed to keep response light
+            };
         });
     }
     async markAttendance(data) {
@@ -120,7 +149,7 @@ class CRTService {
         for (const student of students) {
             try {
                 await prisma_1.default.studentProfile.update({
-                    where: { roll_no: student.roll_no },
+                    where: { roll_no_hash: (0, encryption_1.hash)(student.roll_no) },
                     data: {
                         crt_marks: parseFloat(student.marks),
                         // Update other fields if needed
@@ -175,10 +204,14 @@ class CRTService {
     async getSchedules(filters, page = 1, limit = 20) {
         const skip = (page - 1) * limit;
         const whereClause = {
-            academic_year: filters.academic_year,
-            type: filters.type ? filters.type : undefined,
             is_deleted: false
         };
+        if (filters.academic_year) {
+            whereClause.academic_year = filters.academic_year;
+        }
+        if (filters.type) {
+            whereClause.type = filters.type;
+        }
         if (filters.studentId) {
             whereClause.OR = [
                 { batches: { some: { students: { some: { id: filters.studentId } } } } },
@@ -208,6 +241,15 @@ class CRTService {
                 totalPages: Math.ceil(total / limit)
             }
         };
+    }
+    async deleteSchedule(scheduleId) {
+        const schedule = await prisma_1.default.cRTSchedule.findUnique({ where: { id: scheduleId } });
+        if (!schedule)
+            throw new Error("Schedule not found");
+        return await prisma_1.default.cRTSchedule.update({
+            where: { id: scheduleId },
+            data: { is_deleted: true }
+        });
     }
     async getFacultySchedules(userId, page = 1, limit = 10) {
         const skip = (page - 1) * limit;
@@ -303,8 +345,12 @@ class CRTService {
         }
         // Remove duplicates if any
         const uniqueStudents = Array.from(new Map(students.map(s => [s.id, s])).values());
+        const decryptedStudents = uniqueStudents.map((s) => ({
+            ...s,
+            roll_no: (0, encryption_1.decrypt)(s.roll_no)
+        }));
         // Sort by roll number
-        return uniqueStudents.sort((a, b) => a.roll_no.localeCompare(b.roll_no));
+        return decryptedStudents.sort((a, b) => a.roll_no.localeCompare(b.roll_no));
     }
     async markDailyAttendance(scheduleId, date, section, topic, records) {
         const schedule = await prisma_1.default.cRTSchedule.findUnique({ where: { id: scheduleId } });

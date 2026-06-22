@@ -1,17 +1,23 @@
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 export declare class AuthService {
     register(data: RegisterDto): Promise<{
+        email: string;
         id: string;
         name: string;
-        email: string | null;
         role: import(".prisma/client").$Enums.Role;
-        created_at: Date;
         college_id: string;
+        created_at: Date;
     }>;
     login(data: LoginDto): Promise<{
         user: any;
         token: string;
     }>;
-    changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void>;
+    changePassword(userId: string, oldPassword: string, newPassword: string): Promise<{
+        user: any;
+        token: string;
+    }>;
+    resetPasswordDirect(identifier: string, newPassword: string): Promise<{
+        message: string;
+    }>;
 }
 //# sourceMappingURL=auth.service.d.ts.map

@@ -119,6 +119,16 @@ class CRTController {
             res.status(500).json({ error: error.message });
         }
     }
+    async deleteSchedule(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await crtService.deleteSchedule(id);
+            res.json(result);
+        }
+        catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
     async getFacultySchedules(req, res) {
         try {
             const { page = 1, limit = 10 } = req.query;

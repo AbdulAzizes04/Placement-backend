@@ -18,41 +18,83 @@ const batches_routes_1 = __importDefault(require("./routes/batches.routes"));
 const faculty_routes_1 = __importDefault(require("./routes/faculty.routes"));
 const error_middleware_1 = require("./middlewares/error.middleware");
 const softDelete_middleware_1 = require("./middlewares/softDelete.middleware");
-const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const rateLimit_middleware_1 = require("./middlewares/rateLimit.middleware");
 const app = (0, express_1.default)();
-// Rate Limiting
-const limiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per windowMs
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again after 15 minutes'
-});
+app.disable('x-powered-by');
+const requestLogger_middleware_1 = require("./middlewares/requestLogger.middleware");
 // Middlewares
-app.use((0, helmet_1.default)());
-app.use(limiter);
-app.use((0, cookie_parser_1.default)());
 app.use((0, cors_1.default)({
-    origin: [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        process.env.FRONTEND_URL || "https://your-frontend.onrender.com"
-    ],
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true);
+        const allowedOrigins = [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "https://your-frontend.onrender.com"
+        ];
+        if (process.env.FRONTEND_URL) {
+            allowedOrigins.push(process.env.FRONTEND_URL);
+        }
+        const isRenderSubdomain = origin.endsWith('.onrender.com');
+        if (allowedOrigins.includes(origin) || isRenderSubdomain) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN']
 }));
+app.use((0, helmet_1.default)({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https://api.render.com"],
+        },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    },
+    frameguard: {
+        action: 'deny'
+    },
+    xPoweredBy: false
+}));
+app.use(rateLimit_middleware_1.apiLimiter);
+app.use(requestLogger_middleware_1.requestLogger);
+app.use((0, cookie_parser_1.default)());
+const csrf_middleware_1 = require("./middlewares/csrf.middleware");
+app.use(csrf_middleware_1.csrfProtection); // 🔒 CSRF Protection Global Middleware
 app.use(express_1.default.json({ limit: '2gb' })); // Increased limit for heavy bulk operations
 app.use(express_1.default.urlencoded({ extended: true, limit: '2gb' }));
 app.use(softDelete_middleware_1.softDeleteFilter);
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Routes
+// Public Routes
+app.use('/api/auth', auth_routes_1.default);
+app.use('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
-// Routes
-app.use('/api/auth', auth_routes_1.default);
+// CSRF Initialization Endpoint
+app.get('/api/csrf-token', (req, res) => {
+    // The middleware already set the cookie if missing
+    res.json({ message: "CSRF Token Set" });
+});
+// Global Authentication Barrier
+const auth_middleware_1 = require("./middlewares/auth.middleware");
+app.use(auth_middleware_1.authenticate);
+// Protected Routes
 app.use('/api/users', user_routes_1.default);
 app.use('/api/students', student_routes_1.default);
 app.use('/api/announcements', announcement_routes_1.default);

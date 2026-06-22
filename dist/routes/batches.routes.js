@@ -11,8 +11,10 @@ router.use(auth_middleware_1.authenticate);
 // Restricted Routes (Admin & TPO)
 const isTPOOrAdmin = (0, role_middleware_1.authorize)(constants_1.ROLES.ADMIN, constants_1.ROLES.TPO);
 router.post('/import', isTPOOrAdmin, batches_controller_1.importBatches);
+router.post('/create-from-csv', isTPOOrAdmin, batches_controller_1.createBatchFromCSV);
 router.post('/allocate', isTPOOrAdmin, batches_controller_1.allocateBatches);
 router.post('/availability', isTPOOrAdmin, batches_controller_1.checkAvailability);
+router.post('/delete-all', isTPOOrAdmin, batches_controller_1.deleteAllBatches);
 router.get('/', isTPOOrAdmin, batches_controller_1.getBatches);
 router.get('/branch-stats', isTPOOrAdmin, batches_controller_1.getBranchStats);
 router.post('/unassign', isTPOOrAdmin, batches_controller_1.unassignStudent);

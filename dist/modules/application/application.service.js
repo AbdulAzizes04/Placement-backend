@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ApplicationService = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
+const encryption_1 = require("../../utils/encryption");
 class ApplicationService {
     async apply(studentId, announcementId) {
         return await prisma_1.default.application.create({
@@ -20,6 +21,7 @@ class ApplicationService {
             where: {
                 student_id: studentId,
                 is_deleted: false,
+                announcement: { is_deleted: false }
             },
             include: {
                 announcement: true,
@@ -106,13 +108,46 @@ class ApplicationService {
         return result;
     }
     async getAll(filters, page = 1, limit = 50) {
+        const { company, search, branch, min_cgpa, status, ...otherFilters } = filters;
         const skip = (page - 1) * limit;
+        const whereClause = {
+            is_deleted: false,
+            ...otherFilters
+        };
+        if (status && status !== 'ALL') {
+            whereClause.status = status;
+        }
+        // Relational Filters
+        const studentFilter = {};
+        if (branch)
+            studentFilter.branch = branch;
+        if (min_cgpa)
+            studentFilter.cgpa = { gte: parseFloat(min_cgpa) };
+        if (Object.keys(studentFilter).length > 0) {
+            whereClause.student = studentFilter;
+        }
+        if (company) {
+            whereClause.announcement = {
+                company_name: company,
+                is_deleted: false
+            };
+        }
+        else {
+            whereClause.announcement = {
+                is_deleted: false
+            };
+        }
+        // Search Logic
+        if (search) {
+            whereClause.OR = [
+                { student: { user: { name: { contains: search, mode: 'insensitive' } } } },
+                { announcement: { company_name: { contains: search, mode: 'insensitive' } } },
+                { announcement: { job_role: { contains: search, mode: 'insensitive' } } }
+            ];
+        }
         const [applications, total] = await Promise.all([
             prisma_1.default.application.findMany({
-                where: {
-                    ...filters,
-                    is_deleted: false,
-                },
+                where: whereClause,
                 include: {
                     student: {
                         include: {
@@ -128,10 +163,7 @@ class ApplicationService {
                 take: limit
             }),
             prisma_1.default.application.count({
-                where: {
-                    ...filters,
-                    is_deleted: false
-                }
+                where: whereClause
             })
         ]);
         return {
@@ -142,6 +174,58 @@ class ApplicationService {
                 limit,
                 totalPages: Math.ceil(total / limit)
             }
+        };
+    }
+    async bulkUpdateStatuses(companyName, updates) {
+        console.log(`[ApplicationService] Bulk updating statuses for ${companyName}`);
+        let successCount = 0;
+        let errors = [];
+        // 1. Get the most recent announcement for this company just in case we need to create new applications
+        const announcement = await prisma_1.default.announcement.findFirst({
+            where: { company_name: companyName, is_deleted: false },
+            orderBy: { created_at: 'desc' }
+        });
+        if (!announcement) {
+            throw new Error(`Active announcement not found for company: ${companyName}`);
+        }
+        for (const update of updates) {
+            try {
+                const rollHash = (0, encryption_1.hash)(update.roll_no);
+                const student = await prisma_1.default.studentProfile.findUnique({
+                    where: { roll_no_hash: rollHash }
+                });
+                if (!student) {
+                    errors.push({ roll_no: update.roll_no, error: "Student not found" });
+                    continue;
+                }
+                // Find existing application
+                let application = await prisma_1.default.application.findFirst({
+                    where: {
+                        student_id: student.id,
+                        announcement: { company_name: companyName },
+                        is_deleted: false
+                    }
+                });
+                if (!application) {
+                    // If the status from CSV is APPLIED or higher, create it
+                    application = await this.apply(student.id, announcement.id);
+                }
+                // If the new status differs from current status (or if it's new), update it
+                if (application.status !== update.status) {
+                    await this.updateStatus(application.id, update.status);
+                }
+                successCount++;
+            }
+            catch (err) {
+                console.error(`Error updating roll_no ${update.roll_no}:`, err);
+                errors.push({ roll_no: update.roll_no, error: err.message });
+            }
+        }
+        return {
+            success: true,
+            message: `Successfully processed ${successCount} out of ${updates.length} applications.`,
+            successCount,
+            errors
         };
     }
 }

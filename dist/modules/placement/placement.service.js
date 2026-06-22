@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlacementService = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
+const encryption_1 = require("../../utils/encryption");
 class PlacementService {
     async create(data) {
         // 1. Validate student existence
@@ -30,12 +31,49 @@ class PlacementService {
     }
     async getAll(filters, page = 1, limit = 50) {
         const skip = (page - 1) * limit;
+        const { branch, search, ...otherFilters } = filters;
+        const whereClause = {
+            is_deleted: false,
+            ...otherFilters
+        };
+        if (branch) {
+            whereClause.student = {
+                branch: branch
+            };
+        }
+        if (search) {
+            whereClause.OR = [
+                {
+                    company_name: {
+                        contains: search,
+                        mode: 'insensitive'
+                    }
+                },
+                {
+                    student: {
+                        OR: [
+                            {
+                                user: {
+                                    name: {
+                                        contains: search,
+                                        mode: 'insensitive'
+                                    }
+                                }
+                            },
+                            {
+                                roll_no: {
+                                    contains: search,
+                                    mode: 'insensitive'
+                                }
+                            }
+                        ]
+                    }
+                }
+            ];
+        }
         const [placements, total] = await Promise.all([
             prisma_1.default.placementRecord.findMany({
-                where: {
-                    ...filters,
-                    is_deleted: false,
-                },
+                where: whereClause,
                 include: {
                     student: {
                         include: {
@@ -50,14 +88,24 @@ class PlacementService {
                 take: limit
             }),
             prisma_1.default.placementRecord.count({
-                where: {
-                    ...filters,
-                    is_deleted: false
-                }
+                where: whereClause
             })
         ]);
+        const decryptedPlacements = placements.map(p => {
+            // Map and decrypt the deeply queried fields
+            const pData = { ...p };
+            if (pData.student) {
+                if (pData.student.roll_no) {
+                    pData.student.roll_no = (0, encryption_1.decrypt)(pData.student.roll_no);
+                }
+                if (pData.student.user && pData.student.user.phone) {
+                    pData.student.user.phone = (0, encryption_1.decrypt)(pData.student.user.phone);
+                }
+            }
+            return pData;
+        });
         return {
-            placements,
+            placements: decryptedPlacements,
             meta: {
                 total,
                 page,

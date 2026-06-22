@@ -11,6 +11,11 @@ export declare class CRTService {
         end_date: Date | null;
     }>;
     getBatches(studentId?: string): Promise<{
+        total_students: number;
+        placed_students: number;
+        unplaced_students: number;
+        branch_breakdown: Record<string, number>;
+        students: undefined;
         id: string;
         created_at: Date;
         updated_at: Date;
@@ -22,10 +27,10 @@ export declare class CRTService {
         end_date: Date | null;
     }[]>;
     markAttendance(data: any): Promise<{
+        status: import(".prisma/client").$Enums.AttendanceStatus;
         id: string;
         updated_at: Date;
         is_deleted: boolean;
-        status: import(".prisma/client").$Enums.AttendanceStatus;
         date: Date;
         student_id: string;
         section: import(".prisma/client").$Enums.AttendanceSection;
@@ -83,7 +88,9 @@ export declare class CRTService {
             id: string;
             name: string;
             email: string;
+            email_hash: string | null;
             phone: string | null;
+            phone_hash: string | null;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
@@ -92,13 +99,13 @@ export declare class CRTService {
             assignedBatches: string[];
         }[];
     } & {
+        type: import(".prisma/client").$Enums.ScheduleType;
+        status: string;
         id: string;
         name: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        type: import(".prisma/client").$Enums.ScheduleType;
-        status: string;
         branch: string | null;
         academic_year: string;
         start_date: Date;
@@ -132,7 +139,9 @@ export declare class CRTService {
                 id: string;
                 name: string;
                 email: string;
+                email_hash: string | null;
                 phone: string | null;
+                phone_hash: string | null;
                 created_at: Date;
                 updated_at: Date;
                 is_deleted: boolean;
@@ -141,13 +150,13 @@ export declare class CRTService {
                 assignedBatches: string[];
             }[];
         } & {
+            type: import(".prisma/client").$Enums.ScheduleType;
+            status: string;
             id: string;
             name: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            type: import(".prisma/client").$Enums.ScheduleType;
-            status: string;
             branch: string | null;
             academic_year: string;
             start_date: Date;
@@ -162,6 +171,22 @@ export declare class CRTService {
             limit: number;
             totalPages: number;
         };
+    }>;
+    deleteSchedule(scheduleId: string): Promise<{
+        type: import(".prisma/client").$Enums.ScheduleType;
+        status: string;
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        is_deleted: boolean;
+        branch: string | null;
+        academic_year: string;
+        start_date: Date;
+        end_date: Date;
+        room_no: string;
+        attendance_completed: boolean;
+        attendance_completed_at: Date | null;
     }>;
     getFacultySchedules(userId: string, page?: number, limit?: number): Promise<{
         schedules: {
@@ -182,13 +207,13 @@ export declare class CRTService {
                 start_date: Date | null;
                 end_date: Date | null;
             }[];
+            type: import(".prisma/client").$Enums.ScheduleType;
+            status: string;
             id: string;
             name: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            type: import(".prisma/client").$Enums.ScheduleType;
-            status: string;
             branch: string | null;
             academic_year: string;
             start_date: Date;
@@ -230,7 +255,9 @@ export declare class CRTService {
                 id: string;
                 name: string;
                 email: string;
+                email_hash: string | null;
                 phone: string | null;
+                phone_hash: string | null;
                 created_at: Date;
                 updated_at: Date;
                 is_deleted: boolean;
@@ -238,13 +265,13 @@ export declare class CRTService {
                 assignedBranches: string[];
                 assignedBatches: string[];
             }[];
+            type: import(".prisma/client").$Enums.ScheduleType;
+            status: string;
             id: string;
             name: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            type: import(".prisma/client").$Enums.ScheduleType;
-            status: string;
             branch: string | null;
             academic_year: string;
             start_date: Date;
@@ -260,10 +287,10 @@ export declare class CRTService {
             branch: any;
         }[];
         attendance: {
+            status: import(".prisma/client").$Enums.AttendanceStatus;
             id: string;
             updated_at: Date;
             is_deleted: boolean;
-            status: import(".prisma/client").$Enums.AttendanceStatus;
             date: Date;
             student_id: string;
             section: import(".prisma/client").$Enums.AttendanceSection;
@@ -290,14 +317,14 @@ export declare class CRTService {
     }>;
     getStudentAttendance(studentId: string): Promise<({
         schedule: {
-            name: string;
             type: import(".prisma/client").$Enums.ScheduleType;
+            name: string;
         };
     } & {
+        status: import(".prisma/client").$Enums.AttendanceStatus;
         id: string;
         updated_at: Date;
         is_deleted: boolean;
-        status: import(".prisma/client").$Enums.AttendanceStatus;
         date: Date;
         student_id: string;
         section: import(".prisma/client").$Enums.AttendanceSection;

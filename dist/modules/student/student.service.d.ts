@@ -5,25 +5,29 @@ export declare class StudentService {
             id: string;
             name: string;
             username: string | null;
+            username_hash: string | null;
             email: string | null;
+            email_hash: string | null;
             phone: string | null;
+            phone_hash: string | null;
             password: string;
             role: import(".prisma/client").$Enums.Role;
+            college_id: string;
             mustChangePassword: boolean;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            college_id: string;
         };
         profile: {
+            status: string;
             id: string;
+            college_id: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            college_id: string;
             year: number;
-            status: string;
             roll_no: string;
+            roll_no_hash: string;
             branch: string;
             cgpa: number;
             batch: string;
@@ -37,16 +41,18 @@ export declare class StudentService {
             user_id: string;
             crt_batch_id: string | null;
         };
+        initialPassword: string;
     }>;
     createProfile(userId: string, collegeId: string, data: any): Promise<{
+        status: string;
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         year: number;
-        status: string;
         roll_no: string;
+        roll_no_hash: string;
         branch: string;
         cgpa: number;
         batch: string;
@@ -61,14 +67,15 @@ export declare class StudentService {
         crt_batch_id: string | null;
     }>;
     getProfile(userId: string): Promise<{
+        status: string;
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         year: number;
-        status: string;
         roll_no: string;
+        roll_no_hash: string;
         branch: string;
         cgpa: number;
         batch: string;
@@ -83,14 +90,15 @@ export declare class StudentService {
         crt_batch_id: string | null;
     } | null>;
     getStudentByRollNo(rollNo: string): Promise<{
+        status: string;
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         year: number;
-        status: string;
         roll_no: string;
+        roll_no_hash: string;
         branch: string;
         cgpa: number;
         batch: string;
@@ -105,14 +113,15 @@ export declare class StudentService {
         crt_batch_id: string | null;
     } | null>;
     updateProfile(userId: string, data: any): Promise<{
+        status: string;
         id: string;
+        college_id: string;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
         year: number;
-        status: string;
         roll_no: string;
+        roll_no_hash: string;
         branch: string;
         cgpa: number;
         batch: string;
@@ -136,17 +145,19 @@ export declare class StudentService {
             total: number;
             placed: number;
         }[];
+        activeAnnouncements: number;
     }>;
     getAllStudents(filters: any, page?: number, limit?: number): Promise<{
-        students: ({
+        students: {
+            roll_no: string;
             user: {
+                email: string;
+                username: string;
                 id: string;
                 name: string;
-                username: string | null;
-                email: string | null;
                 role: import(".prisma/client").$Enums.Role;
                 college_id: string;
-            };
+            } | null;
             placement_records: {
                 id: string;
                 created_at: Date;
@@ -158,15 +169,14 @@ export declare class StudentService {
                 offer_letter_url: string | null;
                 placed_at: Date;
             }[];
-        } & {
+            status: string;
             id: string;
+            college_id: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            college_id: string;
             year: number;
-            status: string;
-            roll_no: string;
+            roll_no_hash: string;
             branch: string;
             cgpa: number;
             batch: string;
@@ -179,7 +189,7 @@ export declare class StudentService {
             marks12_url: string | null;
             user_id: string;
             crt_batch_id: string | null;
-        })[];
+        }[];
         meta: {
             total: number;
             page: number;
@@ -204,20 +214,23 @@ export declare class StudentService {
         id: string;
         name: string;
         username: string | null;
+        username_hash: string | null;
         email: string | null;
+        email_hash: string | null;
         phone: string | null;
+        phone_hash: string | null;
         password: string;
         role: import(".prisma/client").$Enums.Role;
+        college_id: string;
         mustChangePassword: boolean;
         created_at: Date;
         updated_at: Date;
         is_deleted: boolean;
-        college_id: string;
     }>;
     bulkDeleteStudents(userIds: string[]): Promise<{
         count: number;
     }>;
-    deleteAllStudents(collegeId: string): Promise<{
+    deleteAllStudents(collegeId: string, batch?: string): Promise<{
         count: number;
     }>;
 }

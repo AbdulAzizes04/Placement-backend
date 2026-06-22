@@ -6,16 +6,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StudentService = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const encryption_1 = require("../../utils/encryption");
 class StudentService {
     // New Single Student Creation Wrapper
     async createStudentWithUser(collegeId, data) {
-        const email = data.email || undefined; // Ensure undefined for Prisma skip if empty string
-        // 1. Check duplicates
+        const email = data.email || undefined;
+        const rollNoHash = (0, encryption_1.hash)(data.roll_no);
+        const emailHash = email ? (0, encryption_1.hash)(email) : undefined;
+        // 1. Check duplicates using Blind Index (Hash)
         const existing = await prisma_1.default.user.findFirst({
             where: {
                 OR: [
-                    { username: data.roll_no },
-                    ...(email ? [{ email: email }] : [])
+                    { username_hash: rollNoHash },
+                    ...(emailHash ? [{ email_hash: emailHash }] : [])
                 ]
             }
         });
@@ -23,15 +26,19 @@ class StudentService {
             throw new Error(`User collision: Roll No '${data.roll_no}' or Email '${data.email}' already exists.`);
         }
         // 2. Transaction
+        const initialPassword = data.roll_no; // User Requirement: Roll No as Password
+        const hashedPassword = await bcryptjs_1.default.hash(initialPassword, 10);
         return await prisma_1.default.$transaction(async (tx) => {
-            const hashedPassword = await bcryptjs_1.default.hash(data.roll_no, 10);
             const user = await tx.user.create({
                 data: {
-                    username: data.roll_no,
-                    email: email, // Can be undefined
+                    username: (0, encryption_1.encrypt)(data.roll_no), // Encrypted
+                    username_hash: rollNoHash, // Hash for lookup
+                    email: email ? (0, encryption_1.encrypt)(email) : null, // Encrypted
+                    email_hash: emailHash, // Hash
                     password: hashedPassword,
-                    name: data.name,
-                    phone: data.phone ?? null,
+                    name: data.name, // Name is not PII in this context? User didn't ask. keeping plaintext for now.
+                    phone: data.phone ? (0, encryption_1.encrypt)(data.phone) : null,
+                    phone_hash: data.phone ? (0, encryption_1.hash)(data.phone) : null,
                     role: 'STUDENT',
                     college_id: collegeId,
                     mustChangePassword: true
@@ -41,7 +48,8 @@ class StudentService {
                 data: {
                     user_id: user.id,
                     college_id: collegeId,
-                    roll_no: data.roll_no,
+                    roll_no: (0, encryption_1.encrypt)(data.roll_no), // Encrypted
+                    roll_no_hash: rollNoHash, // Hash
                     branch: data.branch,
                     year: Number(data.year),
                     batch: data.batch,
@@ -50,20 +58,25 @@ class StudentService {
                     status: data.status || 'Unplaced'
                 }
             });
-            return { user, profile };
+            return { user, profile, initialPassword };
         });
     }
     // Deprecated direct createProfile, use createStudentWithUser instead for new students.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async createProfile(userId, collegeId, data) {
-        // Strip User fields that might be in data (e.g. name, email) to avoid Prisma errors
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { name, email, phone, role, password, username, ...profileData } = data;
+        // If roll_no is in profileData, we must encrypt/hash it
+        const rollNo = profileData.roll_no;
+        const rollNoEnc = rollNo ? (0, encryption_1.encrypt)(rollNo) : undefined;
+        const rollNoHash = rollNo ? (0, encryption_1.hash)(rollNo) : undefined;
         return await prisma_1.default.studentProfile.create({
             data: {
                 user_id: userId,
                 college_id: collegeId,
                 ...profileData,
+                roll_no: rollNoEnc, // Encrypted
+                roll_no_hash: rollNoHash, // Hash
                 // Ensure defaults if missing
                 batch: profileData.batch || "2024-2025",
                 status: profileData.status || "Unplaced"
@@ -71,27 +84,47 @@ class StudentService {
         });
     }
     async getProfile(userId) {
-        return await prisma_1.default.studentProfile.findUnique({
+        const profile = await prisma_1.default.studentProfile.findUnique({
             where: { user_id: userId },
         });
+        if (profile) {
+            profile.roll_no = (0, encryption_1.decrypt)(profile.roll_no);
+        }
+        return profile;
     }
     async getStudentByRollNo(rollNo) {
-        return await prisma_1.default.studentProfile.findUnique({
-            where: { roll_no: rollNo }
+        // Lookup by HASH
+        const profile = await prisma_1.default.studentProfile.findUnique({
+            where: { roll_no_hash: (0, encryption_1.hash)(rollNo) }
         });
+        if (profile) {
+            profile.roll_no = (0, encryption_1.decrypt)(profile.roll_no);
+        }
+        return profile;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async updateProfile(userId, data) {
-        return await prisma_1.default.studentProfile.update({
+        // Determine if we are updating PII fields
+        const updateData = { ...data };
+        // If updating roll_no, must encrypt and hash
+        if (updateData.roll_no) {
+            updateData.roll_no_hash = (0, encryption_1.hash)(updateData.roll_no);
+            updateData.roll_no = (0, encryption_1.encrypt)(updateData.roll_no);
+        }
+        const profile = await prisma_1.default.studentProfile.update({
             where: { user_id: userId },
-            data,
+            data: updateData,
         });
+        // Decrypt return value
+        if (profile && profile.roll_no)
+            profile.roll_no = (0, encryption_1.decrypt)(profile.roll_no);
+        return profile;
     }
     async getStatistics(collegeId, filters = {}) {
         // Current year/batch logic
         const currentYear = new Date().getFullYear();
         const batch = filters.batch || `${currentYear}-${currentYear + 4}`;
-        const [total, placed, crt, branchStats] = await await Promise.all([
+        const [total, placed, crt, branchStats, activeAnnouncements] = await Promise.all([
             prisma_1.default.studentProfile.count({
                 where: { college_id: collegeId, batch: batch }
             }),
@@ -114,9 +147,27 @@ class StudentService {
                 _count: { _all: true },
                 // We also want placed per branch, but groupBy doesn't support complex counts easily
                 // We'll calculate totals and placed separately if needed, or just return totals for now
+            }),
+            prisma_1.default.announcement.count({
+                where: {
+                    college_id: collegeId,
+                    is_deleted: false,
+                    deadline: {
+                        gte: new Date(),
+                    }
+                }
             })
         ]);
-        // For branch placement data, we need more granular counts
+        // For branch placement data, we need more granular counts.
+        // NOTE: Prisma groupBy does NOT support relation filters (e.g. placement_records: { some: {} }).
+        // So we first fetch placed student profile IDs from PlacementRecord, then filter by scalar ID.
+        const placedProfileRecords = await prisma_1.default.placementRecord.findMany({
+            select: { student_id: true },
+            distinct: ['student_id']
+        });
+        const placedProfileIds = placedProfileRecords
+            .map(r => r.student_id)
+            .filter((id) => id !== null);
         const branchPlacedStats = await prisma_1.default.studentProfile.groupBy({
             by: ['branch'],
             where: {
@@ -124,7 +175,7 @@ class StudentService {
                 batch: batch,
                 OR: [
                     { status: 'Placed' },
-                    { placement_records: { some: {} } }
+                    { id: { in: placedProfileIds } }
                 ]
             },
             _count: { _all: true }
@@ -139,25 +190,35 @@ class StudentService {
             placed,
             crt,
             unplaced: total - placed,
-            branchDistribution
+            branchDistribution,
+            activeAnnouncements
         };
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getAllStudents(filters, page = 1, limit = 50) {
         const skip = (page - 1) * limit;
+        // Filters might contain PII (e.g. searching by roll number). 
+        // Usually filters are like branch, year, etc (non-PII).
+        // If 'roll_no' is in filters, we must hash it.
+        const whereClause = {
+            ...filters,
+            is_deleted: false,
+        };
+        if (whereClause.roll_no) {
+            whereClause.roll_no_hash = (0, encryption_1.hash)(whereClause.roll_no);
+            delete whereClause.roll_no;
+        }
+        // Same for name? Name is not encrypted.
         const [students, total] = await Promise.all([
             prisma_1.default.studentProfile.findMany({
-                where: {
-                    ...filters,
-                    is_deleted: false,
-                },
+                where: whereClause,
                 include: {
                     user: {
                         select: {
                             id: true,
                             name: true,
-                            email: true,
-                            username: true,
+                            email: true, // This is now ENCRYPTED
+                            username: true, // This is now ENCRYPTED (roll_no)
                             role: true,
                             college_id: true
                         }
@@ -165,20 +226,33 @@ class StudentService {
                     placement_records: {
                         where: { is_deleted: false }
                     },
-                },
-                orderBy: { roll_no: 'asc' },
-                skip,
-                take: limit
+                }
             }),
             prisma_1.default.studentProfile.count({
-                where: {
-                    ...filters,
-                    is_deleted: false
-                }
+                where: whereClause
             })
         ]);
+        // Decrypt and Sort ALL matching records in memory
+        const decryptedStudents = students.map(s => {
+            return {
+                ...s,
+                roll_no: (0, encryption_1.decrypt)(s.roll_no),
+                user: s.user ? {
+                    ...s.user,
+                    email: (0, encryption_1.decrypt)(s.user.email || ''),
+                    username: (0, encryption_1.decrypt)(s.user.username || '')
+                } : null
+            };
+        }).sort((a, b) => {
+            // Custom alphanumeric sort for roll numbers (e.g. 21B81A0501 < 21B81A05A1)
+            const rollA = a.roll_no ? a.roll_no.toUpperCase() : "";
+            const rollB = b.roll_no ? b.roll_no.toUpperCase() : "";
+            return rollA.localeCompare(rollB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        // Apply Pagination IN MEMORY
+        const paginatedStudents = decryptedStudents.slice(skip, skip + limit);
         return {
-            students,
+            students: paginatedStudents,
             meta: {
                 total,
                 page,
@@ -201,56 +275,86 @@ class StudentService {
             await Promise.all(chunk.map(async (row, index) => {
                 const rowNum = i + index + 1;
                 const normalizedRollNo = (row.roll_no || "").trim().toUpperCase();
+                const rollNoHash = (0, encryption_1.hash)(normalizedRollNo);
                 try {
+                    // Lookup by Hash
                     let existingProfile = await prisma_1.default.studentProfile.findUnique({
-                        where: { roll_no: normalizedRollNo },
+                        where: { roll_no_hash: rollNoHash },
                         include: { user: true }
                     });
                     const email = (row.email || "").trim().toLowerCase();
+                    const emailHash = email ? (0, encryption_1.hash)(email) : undefined;
                     if (!existingProfile && email) {
-                        existingProfile = await prisma_1.default.studentProfile.findFirst({
-                            where: { user: { email: email } },
-                            include: { user: true }
+                        const existingUser = await prisma_1.default.user.findUnique({
+                            where: { email_hash: emailHash }
                         });
-                    }
-                    if (existingProfile) {
-                        await prisma_1.default.studentProfile.update({
-                            where: { id: existingProfile.id },
-                            data: {
-                                roll_no: normalizedRollNo,
-                                branch: row.branch,
-                                year: Number(row.year),
-                                cgpa: Number(row.cgpa),
-                                batch: row.batch,
-                                skills: row.skills || existingProfile.skills,
-                                status: row.status || existingProfile.status,
-                                is_crt: row.is_crt ?? existingProfile.is_crt,
-                                crt_marks: row.crt_marks !== undefined ? Number(row.crt_marks) : existingProfile.crt_marks
-                            }
-                        });
-                        if (row.name || row.phone || (email && existingProfile.user.email !== email)) {
-                            await prisma_1.default.user.update({
-                                where: { id: existingProfile.user_id },
-                                data: {
-                                    name: row.name || undefined,
-                                    phone: row.phone || undefined,
-                                    email: email || undefined,
-                                    username: normalizedRollNo
-                                }
+                        if (existingUser) {
+                            existingProfile = await prisma_1.default.studentProfile.findUnique({
+                                where: { user_id: existingUser.id },
+                                include: { user: true }
                             });
                         }
+                    }
+                    if (existingProfile) {
+                        // Update
+                        // Encrypt and Hash new values
+                        const updateData = {
+                            branch: row.branch,
+                            year: Number(row.year),
+                            cgpa: Number(row.cgpa),
+                            batch: row.batch,
+                            skills: row.skills || existingProfile.skills,
+                            status: row.status || existingProfile.status,
+                            is_crt: row.is_crt ?? existingProfile.is_crt,
+                            crt_marks: row.crt_marks !== undefined ? Number(row.crt_marks) : existingProfile.crt_marks
+                        };
+                        // If updating roll_no (rare but possible in bulk sync if we matched by email?)
+                        // Actually normalizedRollNo is what we matched on. 
+                        await prisma_1.default.studentProfile.update({
+                            where: { id: existingProfile.id },
+                            data: updateData
+                        });
+                        // Update User PII
+                        const userUpdateData = {};
+                        if (row.name)
+                            userUpdateData.name = row.name;
+                        if (row.phone) {
+                            userUpdateData.phone = (0, encryption_1.encrypt)(row.phone);
+                            userUpdateData.phone_hash = (0, encryption_1.hash)(row.phone);
+                        }
+                        if (email) { // If email provided
+                            // Check if different? Need to decrypt existing to check? Or just compare hashes.
+                            // existingProfile.user.email is encrypted. 
+                            // We don't have existingProfile.user.email_hash in included user type unless we selected it?
+                            // Default include selects all scalars.
+                            // But TypeScript might not know about dynamic fields if we didn't update generated client types yet. 
+                            // Assuming client re-generated.
+                            // Just overwriting is safer than decrypting to check.
+                            userUpdateData.email = (0, encryption_1.encrypt)(email);
+                            userUpdateData.email_hash = emailHash;
+                        }
+                        // Always ensure username matches roll_no (encrypted)
+                        userUpdateData.username = (0, encryption_1.encrypt)(normalizedRollNo);
+                        userUpdateData.username_hash = rollNoHash;
+                        await prisma_1.default.user.update({
+                            where: { id: existingProfile.user_id },
+                            data: userUpdateData
+                        });
                         results.updated++;
                     }
                     else {
+                        // New Student
                         const existingUser = await prisma_1.default.user.findFirst({
-                            where: { username: normalizedRollNo }
+                            where: { username_hash: rollNoHash }
                         });
                         if (existingUser) {
+                            // Existing User, Create Profile
                             await prisma_1.default.studentProfile.create({
                                 data: {
                                     user_id: existingUser.id,
                                     college_id: collegeId,
-                                    roll_no: normalizedRollNo,
+                                    roll_no: (0, encryption_1.encrypt)(normalizedRollNo),
+                                    roll_no_hash: rollNoHash,
                                     branch: row.branch,
                                     year: Number(row.year),
                                     cgpa: Number(row.cgpa),
@@ -264,47 +368,56 @@ class StudentService {
                             results.inserted++;
                         }
                         else {
-                            const rowEmail = row.email || undefined;
-                            if (rowEmail) {
-                                const emailCheck = await prisma_1.default.user.findUnique({ where: { email: rowEmail } });
+                            if (emailHash) {
+                                const emailCheck = await prisma_1.default.user.findFirst({ where: { email_hash: emailHash } });
                                 if (emailCheck) {
                                     results.skipped++;
-                                    results.errors.push({ row: rowNum, reason: `Email ${rowEmail} already in use.` });
+                                    results.errors.push({ row: rowNum, reason: `Email ${email} already in use.` });
                                     return;
                                 }
                             }
-                            const hashedPassword = await bcryptjs_1.default.hash(normalizedRollNo, 10);
-                            await prisma_1.default.$transaction(async (tx) => {
-                                const newUser = await tx.user.create({
-                                    data: {
-                                        name: row.name,
-                                        email: rowEmail,
-                                        username: normalizedRollNo,
-                                        phone: row.phone ?? null,
-                                        password: hashedPassword,
-                                        role: 'STUDENT',
-                                        college_id: collegeId,
-                                        mustChangePassword: true
-                                    }
-                                });
-                                await tx.studentProfile.create({
-                                    data: {
-                                        user_id: newUser.id,
-                                        college_id: collegeId,
-                                        roll_no: normalizedRollNo,
-                                        branch: row.branch,
-                                        year: Number(row.year),
-                                        cgpa: Number(row.cgpa),
-                                        skills: row.skills || [],
-                                        batch: row.batch,
-                                        status: row.status || 'Unplaced',
-                                        is_crt: row.is_crt || false,
-                                        crt_marks: row.crt_marks !== undefined ? Number(row.crt_marks) : 0
-                                    }
-                                });
-                            });
-                            results.inserted++;
                         }
+                        const initialPassword = normalizedRollNo; // User Requirement: Roll No as Password
+                        const hashedPassword = await bcryptjs_1.default.hash(initialPassword, 10);
+                        await prisma_1.default.$transaction(async (tx) => {
+                            const newUser = await tx.user.create({
+                                data: {
+                                    name: row.name,
+                                    email: email ? (0, encryption_1.encrypt)(email) : null,
+                                    email_hash: emailHash,
+                                    username: (0, encryption_1.encrypt)(normalizedRollNo),
+                                    username_hash: rollNoHash,
+                                    phone: row.phone ? (0, encryption_1.encrypt)(row.phone) : null,
+                                    phone_hash: row.phone ? (0, encryption_1.hash)(row.phone) : null,
+                                    password: hashedPassword,
+                                    role: 'STUDENT',
+                                    college_id: collegeId,
+                                    mustChangePassword: true
+                                }
+                            });
+                            await tx.studentProfile.create({
+                                data: {
+                                    user_id: newUser.id,
+                                    college_id: collegeId,
+                                    roll_no: (0, encryption_1.encrypt)(normalizedRollNo),
+                                    roll_no_hash: rollNoHash,
+                                    branch: row.branch,
+                                    year: Number(row.year),
+                                    cgpa: Number(row.cgpa),
+                                    skills: row.skills || [],
+                                    batch: row.batch,
+                                    status: row.status || 'Unplaced',
+                                    is_crt: row.is_crt || false,
+                                    crt_marks: row.crt_marks !== undefined ? Number(row.crt_marks) : 0
+                                }
+                            });
+                        });
+                        results.inserted++;
+                        // @ts-ignore
+                        if (!results.createdCredentials)
+                            results.createdCredentials = [];
+                        // @ts-ignore
+                        results.createdCredentials.push({ roll_no: normalizedRollNo, password: initialPassword });
                     }
                 }
                 catch (error) {
@@ -336,8 +449,9 @@ class StudentService {
                 continue;
             }
             try {
+                const rollNoHash = (0, encryption_1.hash)(normalizedRollNo);
                 const existingProfile = await prisma_1.default.studentProfile.findUnique({
-                    where: { roll_no: normalizedRollNo }
+                    where: { roll_no_hash: rollNoHash }
                 });
                 if (existingProfile) {
                     // UPDATE EXISTING
@@ -353,13 +467,17 @@ class StudentService {
                             status: row.status || existingProfile.status
                         }
                     });
-                    if (row.name || row.phone) {
+                    const userUpdates = {};
+                    if (row.name)
+                        userUpdates.name = row.name;
+                    if (row.phone) {
+                        userUpdates.phone = (0, encryption_1.encrypt)(row.phone);
+                        userUpdates.phone_hash = (0, encryption_1.hash)(row.phone);
+                    }
+                    if (Object.keys(userUpdates).length > 0) {
                         await prisma_1.default.user.update({
                             where: { id: existingProfile.user_id },
-                            data: {
-                                name: row.name || undefined,
-                                phone: row.phone || undefined
-                            }
+                            data: userUpdates
                         });
                     }
                     results.updated++;
@@ -445,25 +563,23 @@ class StudentService {
             return { count: deleteResult.count };
         });
     }
-    async deleteAllStudents(collegeId) {
+    async deleteAllStudents(collegeId, batch) {
         return await prisma_1.default.$transaction(async (tx) => {
-            // 1. Find all students for this college
-            const users = await tx.user.findMany({
-                where: {
-                    college_id: collegeId,
-                    role: 'STUDENT'
-                },
-                select: { id: true }
+            // 1. Find all students for this college (and optionally batch)
+            const profilesWhere = {
+                college_id: collegeId,
+            };
+            if (batch) {
+                profilesWhere.batch = batch;
+            }
+            const profiles = await tx.studentProfile.findMany({
+                where: profilesWhere,
+                select: { id: true, user_id: true }
             });
-            if (users.length === 0) {
+            if (profiles.length === 0) {
                 return { count: 0 };
             }
-            const userIds = users.map(u => u.id);
-            // 2. Find their profiles to clean up relations
-            const profiles = await tx.studentProfile.findMany({
-                where: { user_id: { in: userIds } },
-                select: { id: true }
-            });
+            const userIds = profiles.map(p => p.user_id);
             const profileIds = profiles.map(p => p.id);
             // 3. Delete Restricted Relations
             if (profileIds.length > 0) {
@@ -476,7 +592,7 @@ class StudentService {
             }
             // 4. Delete Users (Cascades to Profile & Placements)
             const deleteResult = await tx.user.deleteMany({
-                where: { id: { in: userIds } }
+                where: { id: { in: userIds }, role: 'STUDENT' }
             });
             return { count: deleteResult.count };
         });

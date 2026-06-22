@@ -55,9 +55,9 @@ export declare const createStudentSchema: z.ZodObject<{
     batch: string;
     is_crt: boolean;
     skills: string[];
+    status?: string | undefined;
     email?: string | undefined;
     phone?: string | undefined;
-    status?: string | undefined;
     resume_url?: string | undefined;
     marks10_url?: string | undefined;
     marks12_url?: string | undefined;
@@ -69,9 +69,9 @@ export declare const createStudentSchema: z.ZodObject<{
     cgpa: number;
     batch: string;
     skills: string[];
+    status?: string | undefined;
     email?: string | undefined;
     phone?: string | undefined;
-    status?: string | undefined;
     is_crt?: boolean | undefined;
     resume_url?: string | undefined;
     marks10_url?: string | undefined;
@@ -127,18 +127,18 @@ export declare const studentImportSchema: z.ZodObject<{
     cgpa: number;
     batch: string;
     is_crt: boolean;
+    status?: string | undefined;
     email?: string | undefined;
     phone?: string | undefined;
-    status?: string | undefined;
 }, {
     name: string;
     roll_no: string;
     branch: string;
     batch: string;
+    status?: unknown;
     email?: unknown;
     phone?: string | undefined;
     year?: unknown;
-    status?: unknown;
     cgpa?: unknown;
     is_crt?: unknown;
 }>;
@@ -162,18 +162,18 @@ export declare const bulkImportSchema: z.ZodObject<{
         cgpa: number;
         batch: string;
         is_crt: boolean;
+        status?: string | undefined;
         email?: string | undefined;
         phone?: string | undefined;
-        status?: string | undefined;
     }, {
         name: string;
         roll_no: string;
         branch: string;
         batch: string;
+        status?: unknown;
         email?: unknown;
         phone?: string | undefined;
         year?: unknown;
-        status?: unknown;
         cgpa?: unknown;
         is_crt?: unknown;
     }>, "many">;
@@ -186,9 +186,9 @@ export declare const bulkImportSchema: z.ZodObject<{
         cgpa: number;
         batch: string;
         is_crt: boolean;
+        status?: string | undefined;
         email?: string | undefined;
         phone?: string | undefined;
-        status?: string | undefined;
     }[];
 }, {
     students: {
@@ -196,10 +196,10 @@ export declare const bulkImportSchema: z.ZodObject<{
         roll_no: string;
         branch: string;
         batch: string;
+        status?: unknown;
         email?: unknown;
         phone?: string | undefined;
         year?: unknown;
-        status?: unknown;
         cgpa?: unknown;
         is_crt?: unknown;
     }[];

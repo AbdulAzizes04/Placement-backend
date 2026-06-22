@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.unassignStudent = exports.exportBatch = exports.deleteBatch = exports.getBatchById = exports.getBranchStats = exports.getBatches = exports.allocateBatches = exports.checkAvailability = exports.importBatches = void 0;
+exports.createBatchFromCSV = exports.unassignStudent = exports.exportBatch = exports.deleteAllBatches = exports.deleteBatch = exports.getBatchById = exports.getBranchStats = exports.getBatches = exports.allocateBatches = exports.checkAvailability = exports.importBatches = void 0;
 const client_1 = require("@prisma/client");
+const encryption_1 = require("../utils/encryption");
 const prisma = new client_1.PrismaClient();
 const student_service_1 = require("../modules/student/student.service");
 const studentService = new student_service_1.StudentService();
@@ -301,9 +305,10 @@ const getBatchById = async (req, res) => {
             orderBy: { roll_no: 'asc' }
         });
         const studentData = students.map(s => ({
-            id: s.id,
+            id: s.user_id,
+            profileId: s.id,
             name: s.user?.name || "Unknown",
-            roll_no: s.roll_no,
+            roll_no: (0, encryption_1.decrypt)(s.roll_no),
             branch: s.branch,
             email: s.user?.email || "N/A",
             phone: s.user?.phone || "N/A",
@@ -350,6 +355,59 @@ const deleteBatch = async (req, res) => {
     }
 };
 exports.deleteBatch = deleteBatch;
+// --- Delete All Batches for a Year ---
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const deleteAllBatches = async (req, res) => {
+    try {
+        const { password, batch_year } = req.body;
+        const user = req.user;
+        if (!password) {
+            res.status(400).json({ error: "Password is required" });
+            return;
+        }
+        if (!batch_year) {
+            res.status(400).json({ error: "Academic year is required" });
+            return;
+        }
+        // 1. Verify Admin Password
+        const adminUser = await prisma.user.findUnique({
+            where: { id: user.id }
+        });
+        if (!adminUser || !(await bcryptjs_1.default.compare(password, adminUser.password))) {
+            res.status(401).json({ error: "Invalid password" });
+            return;
+        }
+        await prisma.$transaction(async (tx) => {
+            // 1. Erase CRT module data and unassign all students in this year
+            await tx.studentProfile.updateMany({
+                where: { batch: batch_year },
+                data: {
+                    crt_batch_id: null,
+                    allocated_batch: null,
+                    is_crt: false,
+                    crt_marks: null
+                }
+            });
+            // 2. Find all batches for this year
+            const batches = await tx.cRTBatch.findMany({
+                where: { academic_year: batch_year }
+            });
+            const batchIds = batches.map(b => b.id);
+            if (batchIds.length > 0) {
+                // 3. Delete batches
+                await tx.cRTBatch.deleteMany({
+                    where: { id: { in: batchIds } }
+                });
+            }
+        });
+        res.json({ message: `All batches for ${batch_year} deleted successfully.` });
+    }
+    catch (error) {
+        console.error("Delete all batches error:", error);
+        res.status(500).json({ error: "Failed to delete all batches" });
+    }
+};
+exports.deleteAllBatches = deleteAllBatches;
 // --- Export Batch ---
 const exportBatch = async (req, res) => {
     try {
@@ -414,4 +472,113 @@ const unassignStudent = async (req, res) => {
     }
 };
 exports.unassignStudent = unassignStudent;
+// --- Create Batch from CSV ---
+const createBatchFromCSV = async (req, res) => {
+    try {
+        const { batch_name, academic_year, students } = req.body;
+        const collegeId = req.user?.college_id;
+        if (!collegeId) {
+            res.status(400).json({ error: "College ID not found" });
+            return;
+        }
+        if (!batch_name) {
+            res.status(400).json({ error: "Batch name is required" });
+            return;
+        }
+        if (!students || !Array.isArray(students) || students.length === 0) {
+            res.status(400).json({ error: "Invalid students data" });
+            return;
+        }
+        // 1. Check if batch name already exists
+        const existingBatch = await prisma.cRTBatch.findFirst({
+            where: { batch_name: batch_name }
+        });
+        if (existingBatch) {
+            res.status(400).json({ error: `Batch name '${batch_name}' already exists` });
+            return;
+        }
+        // 2. Prepare bulk data
+        const bulkData = students.map((s) => {
+            const getVal = (keys) => {
+                const targetKey = Object.keys(s).find(k => keys.some(tk => k.trim().toLowerCase() === tk.toLowerCase()));
+                return targetKey ? s[targetKey] : undefined;
+            };
+            const rollNo = getVal(["Roll No", "roll_no", "RollNo", "Roll Number", "Roll_No"]);
+            const name = getVal(["Name", "Student Name", "name"]);
+            const email = getVal(["Email", "Email ID", "EmailAddress", "email"]);
+            const branch = getVal(["Branch", "Department", "branch"]);
+            const cgpa = getVal(["CGPA", "GPA", "cgpa"]);
+            const marks = getVal(["Marks", "CRT Marks", "marks"]);
+            const batchCol = getVal(["Batch", "Academic Year", "Year", "batch"]);
+            const batchStr = batchCol || academic_year || "2024-2028";
+            let year = 1;
+            try {
+                const batchStart = parseInt(batchStr.split('-')[0]);
+                const currentDate = new Date();
+                const currentMonth = currentDate.getMonth();
+                const currentYear = currentDate.getFullYear();
+                const academicYearStart = currentMonth < 6 ? currentYear - 1 : currentYear;
+                year = Math.max(1, Math.min(4, academicYearStart - batchStart + 1));
+            }
+            catch (e) {
+                year = 1;
+            }
+            return {
+                roll_no: String(rollNo || "").trim(),
+                name: String(name || "").trim(),
+                email: String(email || "").trim(),
+                branch: String(branch || "").trim(),
+                batch: String(batchStr || "").trim(),
+                cgpa: Number(cgpa || 0),
+                year: year,
+                crt_marks: Number(marks || 0),
+                is_crt: true,
+                status: 'Unplaced',
+                skills: []
+            };
+        }).filter((s) => s.roll_no && s.name && s.branch);
+        if (bulkData.length === 0) {
+            res.status(400).json({ error: "No valid student data found in the provided list" });
+            return;
+        }
+        // 3. Upsert students
+        await studentService.bulkCreateStudents(bulkData, collegeId);
+        // 4. Create Batch & allocate students
+        await prisma.$transaction(async (tx) => {
+            const newBatch = await tx.cRTBatch.create({
+                data: {
+                    batch_name: batch_name,
+                    academic_year: academic_year || "2024-2025",
+                    trainer_name: "TBD",
+                    start_date: new Date(),
+                }
+            });
+            // Find the upserted students to get their IDs using hashes
+            const rollNoHashes = bulkData.map(s => (0, encryption_1.hash)(s.roll_no.toUpperCase()));
+            const eligibleStudents = await tx.studentProfile.findMany({
+                where: {
+                    roll_no_hash: { in: rollNoHashes },
+                    college_id: collegeId
+                },
+                select: { id: true }
+            });
+            if (eligibleStudents.length > 0) {
+                const studentIds = eligibleStudents.map(s => s.id);
+                await tx.studentProfile.updateMany({
+                    where: { id: { in: studentIds } },
+                    data: {
+                        crt_batch_id: newBatch.id,
+                        allocated_batch: newBatch.batch_name
+                    }
+                });
+            }
+        });
+        res.json({ message: "Batch created successfully from CSV data" });
+    }
+    catch (error) {
+        console.error("Create batch from CSV error:", error);
+        res.status(500).json({ error: error.message || "Failed to create batch from CSV" });
+    }
+};
+exports.createBatchFromCSV = createBatchFromCSV;
 //# sourceMappingURL=batches.controller.js.map

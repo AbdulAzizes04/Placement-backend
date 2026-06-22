@@ -6,14 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StudentController = void 0;
 const student_service_1 = require("./student.service");
 const student_validation_1 = require("./student.validation");
-const zod_1 = require("zod");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const prisma_1 = __importDefault(require("../../config/prisma"));
+const fileValidation_1 = require("../../utils/fileValidation");
 const studentService = new student_service_1.StudentService();
+const catchAsync_1 = require("../../utils/catchAsync");
 class StudentController {
-    // Admin: Create Single Student (Auto-creates User)
-    async createStudent(req, res) {
-        try {
+    constructor() {
+        // Admin: Create Single Student (Auto-creates User)
+        this.createStudent = (0, catchAsync_1.catchAsync)(async (req, res) => {
             // Use extended schema for full student creation (including User fields)
             const data = student_validation_1.createStudentSchema.parse(req.body);
             const collegeId = req.user.college_id;
@@ -21,29 +22,16 @@ class StudentController {
                 ...data,
                 status: data.status || 'Unplaced'
             });
+            // Return the result directly as it now contains { user, profile, initialPassword }
             res.status(201).json(result);
-        }
-        catch (error) {
-            res.status(400).json({ error: error.message });
-        }
-    }
-    // Self: Complete Profile (Legacy/User-driven)
-    async createProfile(req, res) {
-        try {
+        });
+        // Self: Complete Profile (Legacy/User-driven)
+        this.createProfile = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const data = student_validation_1.createStudentProfileSchema.parse(req.body);
-            // We need to pass valid CreateStudentDto-like or just specific profile data.
-            // Since createProfile in service was removed/refactored, we might need to restore it OR use update if profile exists?
-            // But this is "createProfile".
-            // Assuming restore of createProfile in service.
             const profile = await studentService.createProfile(req.user.id, req.user.college_id, data);
             res.status(201).json(profile);
-        }
-        catch (error) {
-            res.status(400).json({ error: error.message });
-        }
-    }
-    async bulkCreate(req, res) {
-        try {
+        });
+        this.bulkCreate = (0, catchAsync_1.catchAsync)(async (req, res) => {
             console.log("Incoming student sample:", req.body.students?.[0]);
             // Use strict schema from validation file
             const { students } = student_validation_1.bulkImportSchema.parse(req.body);
@@ -52,50 +40,22 @@ class StudentController {
                 return res.status(400).json({ error: "College ID not found in session" });
             }
             console.log("Validation Passed. Processing...");
-            const result = await studentService.bulkCreateStudents(students, collegeId);
+            // 🔒 Security Hardening: Sanitize CSV Data to prevent Formula Injection
+            const sanitizedStudents = (0, fileValidation_1.sanitizeCSV)(students);
+            const result = await studentService.bulkCreateStudents(sanitizedStudents, collegeId);
+            // Result now includes createdCredentials array with plain text passwords
             res.json(result);
-        }
-        catch (error) {
-            if (error instanceof zod_1.z.ZodError) {
-                console.error("Validation Failed:", JSON.stringify(error.errors, null, 2));
-                return res.status(400).json({
-                    error: "Validation Error",
-                    details: error.errors.map(e => {
-                        // Helper to get nested value safely
-                        const val = e.path.reduce((acc, key) => acc?.[key], req.body);
-                        return {
-                            path: e.path.join('.'),
-                            message: e.message,
-                            received: val
-                        };
-                    })
-                });
-            }
-            console.error("Bulk Import Error:", error);
-            res.status(500).json({ error: error.message });
-        }
-    }
-    async getProfile(req, res) {
-        try {
+        });
+        this.getProfile = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const profile = await studentService.getProfile(req.user.id);
             res.json(profile);
-        }
-        catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    }
-    async updateProfile(req, res) {
-        try {
+        });
+        this.updateProfile = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const data = student_validation_1.updateStudentProfileSchema.parse(req.body);
             const profile = await studentService.updateProfile(req.user.id, data);
             res.json(profile);
-        }
-        catch (error) {
-            res.status(400).json({ error: error.message });
-        }
-    }
-    async getAllStudents(req, res) {
-        try {
+        });
+        this.getAllStudents = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const { page = 1, limit = 50, ...filters } = req.query;
             const collegeId = req.user.college_id;
             const pageNum = parseInt(page) || 1;
@@ -104,6 +64,19 @@ class StudentController {
                 ...filters,
                 college_id: collegeId,
             };
+            if (queryFilters.is_crt !== undefined) {
+                queryFilters.is_crt = queryFilters.is_crt === 'true';
+            }
+            if (queryFilters.min_cgpa) {
+                queryFilters.cgpa = { gte: parseFloat(queryFilters.min_cgpa) };
+                delete queryFilters.min_cgpa;
+            }
+            if (queryFilters.search) {
+                queryFilters.user = {
+                    name: { contains: queryFilters.search, mode: 'insensitive' }
+                };
+                delete queryFilters.search;
+            }
             const result = await studentService.getAllStudents(queryFilters, pageNum, limitNum);
             const { students, meta } = result;
             const currentYear = new Date().getFullYear();
@@ -133,46 +106,25 @@ class StudentController {
                 };
             });
             res.json({
-                students: transformedStudents,
+                data: transformedStudents,
                 meta
             });
-        }
-        catch (error) {
-            console.error("GET /students failed:", error);
-            res.status(500).json({ error: error.message });
-        }
-    }
-    async deleteStudent(req, res) {
-        try {
+        });
+        this.deleteStudent = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const { id } = req.params;
             await studentService.deleteStudent(id);
             res.json({ message: "Student and related account deleted successfully" });
-        }
-        catch (error) {
-            const message = error.message;
-            if (message.includes("Student profile not found")) {
-                return res.status(404).json({ error: "Student not found" });
-            }
-            res.status(500).json({ error: message });
-        }
-    }
-    async bulkDelete(req, res) {
-        try {
+        });
+        this.bulkDelete = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const { studentIds } = req.body;
             if (!Array.isArray(studentIds) || studentIds.length === 0) {
                 return res.status(400).json({ error: "No student IDs provided" });
             }
             const result = await studentService.bulkDeleteStudents(studentIds);
             res.json({ message: "Bulk deletion successful", deletedCount: result.count });
-        }
-        catch (error) {
-            const message = error.message;
-            res.status(500).json({ error: message });
-        }
-    }
-    async deleteAllStudents(req, res) {
-        try {
-            const { password } = req.body;
+        });
+        this.deleteAllStudents = (0, catchAsync_1.catchAsync)(async (req, res) => {
+            const { password, batch_year } = req.body;
             const user = req.user;
             if (!password) {
                 return res.status(400).json({ error: "Password is required" });
@@ -184,27 +136,17 @@ class StudentController {
             if (!adminUser || !(await bcryptjs_1.default.compare(password, adminUser.password))) {
                 return res.status(401).json({ error: "Invalid password" });
             }
-            // 2. Perform Delete All
-            const result = await studentService.deleteAllStudents(user.college_id);
-            console.log(`[Admin ${user.email}] Deleted all students. Count: ${result.count}`);
-            res.json({ message: "All students deleted successfully", deletedCount: result.count });
-        }
-        catch (error) {
-            console.error("Delete All Students Error:", error);
-            res.status(500).json({ error: error.message });
-        }
-    }
-    async getStatistics(req, res) {
-        try {
+            // 2. Perform Delete All (filtered by batch_year if provided)
+            const result = await studentService.deleteAllStudents(user.college_id, batch_year);
+            console.log(`[Admin ${user.email}] Deleted students (Batch: ${batch_year || 'ALL'}). Count: ${result.count}`);
+            res.json({ message: "Students deleted successfully", deletedCount: result.count });
+        });
+        this.getStatistics = (0, catchAsync_1.catchAsync)(async (req, res) => {
             const collegeId = req.user.college_id;
             const filters = req.query;
             const stats = await studentService.getStatistics(collegeId, filters);
             res.json(stats);
-        }
-        catch (error) {
-            console.error("GET /students/stats failed:", error);
-            res.status(500).json({ error: error.message });
-        }
+        });
     }
 }
 exports.StudentController = StudentController;

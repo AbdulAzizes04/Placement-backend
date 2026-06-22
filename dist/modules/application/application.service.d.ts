@@ -1,20 +1,20 @@
 export declare class ApplicationService {
     apply(studentId: string, announcementId: string): Promise<{
+        status: import(".prisma/client").$Enums.ApplicationStatus;
         id: string;
         updated_at: Date;
         is_deleted: boolean;
-        status: import(".prisma/client").$Enums.ApplicationStatus;
         student_id: string;
-        applied_at: Date;
         announcement_id: string;
+        applied_at: Date;
     }>;
     getApplications(studentId: string): Promise<({
         announcement: {
             id: string;
+            college_id: string;
             created_at: Date;
             updated_at: Date;
             is_deleted: boolean;
-            college_id: string;
             company_name: string;
             package: string | null;
             job_role: string;
@@ -28,31 +28,31 @@ export declare class ApplicationService {
             created_by: string;
         };
     } & {
+        status: import(".prisma/client").$Enums.ApplicationStatus;
         id: string;
         updated_at: Date;
         is_deleted: boolean;
-        status: import(".prisma/client").$Enums.ApplicationStatus;
         student_id: string;
-        applied_at: Date;
         announcement_id: string;
+        applied_at: Date;
     })[]>;
     updateStatus(id: string, status: any): Promise<{
+        status: import(".prisma/client").$Enums.ApplicationStatus;
         id: string;
         updated_at: Date;
         is_deleted: boolean;
-        status: import(".prisma/client").$Enums.ApplicationStatus;
         student_id: string;
-        applied_at: Date;
         announcement_id: string;
+        applied_at: Date;
     }>;
     getAll(filters: any, page?: number, limit?: number): Promise<{
         applications: ({
             announcement: {
                 id: string;
+                college_id: string;
                 created_at: Date;
                 updated_at: Date;
                 is_deleted: boolean;
-                college_id: string;
                 company_name: string;
                 package: string | null;
                 job_role: string;
@@ -72,14 +72,15 @@ export declare class ApplicationService {
                     phone: string | null;
                 };
             } & {
+                status: string;
                 id: string;
+                college_id: string;
                 created_at: Date;
                 updated_at: Date;
                 is_deleted: boolean;
-                college_id: string;
                 year: number;
-                status: string;
                 roll_no: string;
+                roll_no_hash: string;
                 branch: string;
                 cgpa: number;
                 batch: string;
@@ -94,13 +95,13 @@ export declare class ApplicationService {
                 crt_batch_id: string | null;
             };
         } & {
+            status: import(".prisma/client").$Enums.ApplicationStatus;
             id: string;
             updated_at: Date;
             is_deleted: boolean;
-            status: import(".prisma/client").$Enums.ApplicationStatus;
             student_id: string;
-            applied_at: Date;
             announcement_id: string;
+            applied_at: Date;
         })[];
         meta: {
             total: number;
@@ -108,6 +109,15 @@ export declare class ApplicationService {
             limit: number;
             totalPages: number;
         };
+    }>;
+    bulkUpdateStatuses(companyName: string, updates: Array<{
+        roll_no: string;
+        status: any;
+    }>): Promise<{
+        success: boolean;
+        message: string;
+        successCount: number;
+        errors: any[];
     }>;
 }
 //# sourceMappingURL=application.service.d.ts.map

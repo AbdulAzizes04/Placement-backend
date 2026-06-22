@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlacementController = void 0;
 const placement_service_1 = require("./placement.service");
 const placementService = new placement_service_1.PlacementService();
+const student_service_1 = require("../student/student.service");
+const studentService = new student_service_1.StudentService();
 class PlacementController {
     async create(req, res) {
         try {
@@ -48,7 +50,16 @@ class PlacementController {
     }
     async getByStudent(req, res) {
         try {
-            const records = await placementService.getByStudent(req.params.studentId);
+            const { studentId } = req.params;
+            const user = req.user;
+            // IDOR Protection
+            if (user.role === 'STUDENT') {
+                const profile = await studentService.getProfile(user.id);
+                if (!profile || profile.id !== studentId) {
+                    return res.status(403).json({ error: "Access Denied: You can only view your own placements" });
+                }
+            }
+            const records = await placementService.getByStudent(studentId);
             res.json(records);
         }
         catch (error) {

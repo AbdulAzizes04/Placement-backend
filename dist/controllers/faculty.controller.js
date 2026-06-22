@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteFaculty = exports.updateFaculty = exports.createFaculty = exports.getFacultyById = exports.getFacultyList = void 0;
 const client_1 = require("@prisma/client");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const prisma = new client_1.PrismaClient();
 // Get all faculty
 const getFacultyList = async (req, res) => {
@@ -110,14 +114,13 @@ const createFaculty = async (req, res) => {
         // Transaction to create User + Profile
         const result = await prisma.$transaction(async (tx) => {
             // 1. Create User
-            // Note: Password hashing should be done here (e.g. bcrypt). 
-            // For simplicity/demo ensuring exact requirement flow:
+            const hashedPassword = await bcryptjs_1.default.hash(password, 10);
             const user = await tx.user.create({
                 data: {
                     name,
                     email,
                     username: email, // Default username as email
-                    password: password, // In prod, hash this!
+                    password: hashedPassword,
                     phone,
                     role: 'STAFF', // Faculty = STAFF
                     college_id: req.user.college_id,
@@ -153,8 +156,6 @@ const updateFaculty = async (req, res) => {
     try {
         const { id } = req.params;
         const { name, email, phone, assignedBranches, assignedBatches } = req.body;
-        // Check if updating Assignments only (TPO) or Details too (Admin)
-        // Access control should be in middleware, here we just update what's passed.
         const updateData = {};
         if (name)
             updateData.name = name;
@@ -193,12 +194,6 @@ exports.updateFaculty = updateFaculty;
 const deleteFaculty = async (req, res) => {
     try {
         const { id } = req.params;
-        // Soft delete or Hard delete? Requirement says "Unassign students".
-        // Since we don't have direct Student->Faculty link yet in schema (only implicit via Branch/Batch or not implemented),
-        // we will just delete the profile. The cascade in schema `onDelete: Cascade` on User relation logic might need check.
-        // Actually schema says: user User @relation(..., onDelete: Cascade).
-        // So deleting User deletes Profile. Deleting Profile supports separate management.
-        // We will Soft Delete the User to disable login.
         const profile = await prisma.facultyProfile.findUnique({ where: { id } });
         if (!profile)
             return res.status(404).json({ error: "Faculty not found" });

@@ -21,6 +21,21 @@ const authenticate = (req, res, next) => {
         }
         const decoded = jsonwebtoken_1.default.verify(token, env_1.env.JWT_SECRET);
         req.user = decoded;
+        // 🔒 Security Hardening: Enforce Password Change
+        if (decoded.mustChangePassword) {
+            const allowedPath = '/api/auth/change-password';
+            const currentPath = req.originalUrl.split('?')[0];
+            console.log(`Debug Middleware: Checking Path for Password Change Enforce`);
+            console.log(`Current Path: '${currentPath}'`);
+            console.log(`Allowed Path: '${allowedPath}'`);
+            console.log(`Match? ${currentPath === allowedPath}`);
+            if (currentPath !== allowedPath) {
+                return res.status(403).json({
+                    message: 'Security Alert: You must change your password to proceed.',
+                    code: 'PASSWORD_CHANGE_REQUIRED'
+                });
+            }
+        }
         next();
     }
     catch (error) {

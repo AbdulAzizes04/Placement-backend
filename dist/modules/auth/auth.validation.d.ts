@@ -59,4 +59,14 @@ export declare const changePasswordSchema: z.ZodObject<{
     oldPassword: string;
     newPassword: string;
 }>;
+export declare const resetPasswordSchema: z.ZodObject<{
+    identifier: z.ZodString;
+    newPassword: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    identifier: string;
+    newPassword: string;
+}, {
+    identifier: string;
+    newPassword: string;
+}>;
 //# sourceMappingURL=auth.validation.d.ts.map

@@ -23,13 +23,25 @@ import { requestLogger } from './middlewares/requestLogger.middleware';
 
 // Middlewares
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    process.env.FRONTEND_URL || "https://your-frontend.onrender.com"
-  ],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const allowedOrigins = [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3001",
+      "https://your-frontend.onrender.com"
+    ];
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+    const isRenderSubdomain = origin.endsWith('.onrender.com');
+    if (allowedOrigins.includes(origin) || isRenderSubdomain) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN']

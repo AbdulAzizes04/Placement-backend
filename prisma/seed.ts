@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { faker } from '@faker-js/faker';
+import { encrypt, hash } from '../src/utils/encryption';
 
 const prisma = new PrismaClient();
 
@@ -32,12 +33,13 @@ async function main() {
 
   // 2. Get or Create Admin
   const adminEmail = 'admin@example.com';
-  let admin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  let admin = await prisma.user.findFirst({ where: { email_hash: hash(adminEmail) } });
   if (!admin) {
     admin = await prisma.user.create({
       data: {
         name: 'Admin User',
-        email: adminEmail,
+        email: encrypt(adminEmail),
+        email_hash: hash(adminEmail),
         password: hashedPassword,
         role: 'ADMIN',
         college_id: college.id,
@@ -50,12 +52,13 @@ async function main() {
   const tpos = [];
   for (let i = 0; i < 3; i++) {
     const email = `tpo${i + 1}@example.com`;
-    let tpo = await prisma.user.findUnique({ where: { email } });
+    let tpo = await prisma.user.findFirst({ where: { email_hash: hash(email) } });
     if (!tpo) {
       tpo = await prisma.user.create({
         data: {
           name: faker.person.fullName(),
-          email,
+          email: encrypt(email),
+          email_hash: hash(email),
           password: hashedPassword,
           role: 'TPO',
           college_id: college.id,
@@ -88,10 +91,13 @@ async function main() {
       const user = await prisma.user.create({
         data: {
           name: faker.person.fullName(),
-          email,
+          email: encrypt(email),
+          email_hash: hash(email),
           password: hashedPassword,
           role: 'STUDENT',
           college_id: college.id,
+          username: encrypt(rollNo),
+          username_hash: hash(rollNo),
         }
       });
 
@@ -99,7 +105,8 @@ async function main() {
         data: {
           user_id: user.id,
           college_id: college.id,
-          roll_no: rollNo,
+          roll_no: encrypt(rollNo),
+          roll_no_hash: hash(rollNo),
           branch: branches[Math.floor(Math.random() * branches.length)],
           year: Math.floor(Math.random() * 4) + 1,
           cgpa: Math.round((5 + Math.random() * 4.5) * 10) / 10,

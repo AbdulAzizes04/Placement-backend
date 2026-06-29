@@ -39,7 +39,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin) || isRenderSubdomain) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,

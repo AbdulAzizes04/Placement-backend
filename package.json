@@ -4,14 +4,13 @@
   "description": "Backend for Placement Support Management System",
   "main": "dist/server.js",
   "scripts": {
-    "build": "prisma generate && tsc",
+    "build": "node node_modules/prisma/build/index.js generate && node node_modules/typescript/bin/tsc",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

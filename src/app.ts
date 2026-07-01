@@ -82,6 +82,15 @@ app.use(softDeleteFilter);
 
 // Routes
 // Public Routes
+app.get('/', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Placement Support Management System API is running',
+    version: '1.0.0',
+    healthCheck: '/api/health'
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
